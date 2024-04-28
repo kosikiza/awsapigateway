@@ -1,0 +1,165 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "StageName": {
+      "Type": "String",
+      "Default": "v1",
+      "Description": "Name of API stage."
+    },
+    "BaseUrl": {
+      "Type": "String",
+      "Default": "https://uat.publishinteractive.com/api",
+      "Description": "Name of API stage."
+    }
+  },
+  "Resources": {
+    "Api": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Body": {
+          "swagger": "2.0",
+          "info": {
+            "title": "iReports API v1.0",
+            "description": "This documentation lists the Version 1 API endpoints.",
+            "version": "1.1.0"
+          },
+          "basePath": "~/api/v1",
+          "consumes": [
+            "application/json",
+            "application/xml",
+            "application/bson",
+            "application/x-www-form-urlencoded"
+          ],
+          "produces": [
+            "application/json",
+            "application/xml",
+            "application/bson"
+          ],
+          "paths": {
+            "/categories": {
+              "get": {
+                "summary": "Gets categories, optionally including descendants",
+                "description": "Gets a list of the top level categories, optionally including their descendants. Top level categories are the categories without parents and will appear as filters in the advanced search and as items in the homepage accordian.\n\nWhen the 'code' parameter is provided, the list will only contain the matching category, which may or may not be a top level category.\n\n**Warning:** Category ids are mutable and change when parents or siblings are modified. Please do not cache them for long periods.\n",
+                "parameters": [
+                  {
+                    "in": "header",
+                    "name": "Authorization",
+                    "type": "string",
+                    "required": true
+                  },
+                  {
+                    "name": "includeHidden",
+                    "in": "query",
+                    "description": "Whether to include hidden categories or not. Only available for users in role \"ReportAdmin\".",
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  {
+                    "name": "includeDescendants",
+                    "in": "query",
+                    "description": "Whether to include descendants of the categories.\n\nWarning: this can be a large amount of data and therefore slow. It is recommended to look up a specific category by id\n",
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  {
+                    "name": "code",
+                    "in": "query",
+                    "description": "When provided, returns the category with this code.\nThis may be anywhere in the category tree regardless of the 'includeDescendants' parameter.\nIf no category matches this code then an empty list is returned.\n",
+                    "default": "",
+                    "type": "string"
+                  }
+                ],
+                "tags": [
+                  "Categories"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Successful operation",
+                    "schema": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/CategoryModel"
+                      }
+                    }
+                  }
+                },
+                "x-amazon-apigateway-integration": {
+                  "responses": {
+                    "default": {
+                      "statusCode": "200"
+                    }
+                  },
+                  "requestParameters": {
+                    "integration.request.header.Authorization": "method.request.header.Authorization",
+                    "integration.request.querystring.includeHidden": "method.request.querystring.includeHidden",
+                    "integration.request.querystring.includeDescendants": "method.request.querystring.includeDescendants",
+                    "integration.request.querystring.code": "method.request.querystring.code"
+                  },
+                  "uri": { "Fn::Sub": "${BaseUrl}/v1/categories" },                  
+                  "passthroughBehavior": "when_no_match",
+                  "httpMethod": "GET",
+                  "type": "http"
+                }
+              }
+            }
+          },
+          "definitions": {
+            "CategoryModel": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "The unique identifier of the category."
+                },
+                "parentId": {
+                  "type": "string",
+                  "description": "The id of the parent of this category. Null for a top level category."
+                },
+                "code": {
+                  "type": "string",
+                  "description": "The optional code used to identify the category"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The display name of the category"
+                },
+                "isHidden": {
+                  "type": "boolean",
+                  "description": "Whether the category is visible or not",
+                  "default": false
+                },
+                "childIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The ids of the children belonging to this category. Replaced by Children when \"Include descendants\" is true"
+                },
+                "children": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/CategoryModel"
+                  },
+                  "description": "The children of this category. Only included when \"Include descendants\" is true"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ApiDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "Api"
+        },
+        "StageName": {
+          "Ref": "StageName"
+        }
+      }
+    }
+  }
+}
